@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CreaTech | Dynamic Engineering System</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark">CT</div>
+        <div>
+          <h1>Dynamic Engineering System</h1>
+          <p>AI-Driven Generative Design & Autonomous Construction</p>
+        </div>
+      </div>
+      <div class="status-pill" id="systemStatus">System Live</div>
+    </header>
+
+    <main class="layout">
+      <section class="card control-card">
+        <h2>Project Inputs</h2>
+        <p>Configure design and site constraints to generate optimized methods.</p>
+        <form id="designForm">
+          <label>
+            Project Type
+            <select id="projectType">
+              <option value="highrise">High-Rise Tower</option>
+              <option value="bridge">Urban Bridge</option>
+              <option value="industrial">Industrial Facility</option>
+            </select>
+          </label>
+          <label>
+            Budget (M USD)
+            <input id="budget" type="number" min="30" max="500" value="120" />
+          </label>
+          <label>
+            Deadline (months)
+            <input id="deadline" type="number" min="6" max="72" value="24" />
+          </label>
+          <label>
+            Sustainability Priority
+            <input id="sustainability" type="range" min="0" max="100" value="70" />
+            <span class="range-value" id="sustainabilityValue">70%</span>
+          </label>
+          <label>
+            Safety Priority
+            <input id="safety" type="range" min="0" max="100" value="85" />
+            <span class="range-value" id="safetyValue">85%</span>
+          </label>
+          <button type="submit" class="primary">Generate Design Options</button>
+        </form>
+      </section>
+
+      <section class="card results-card">
+        <div class="section-head">
+          <h2>Generative Design Options</h2>
+          <button id="recalibrateBtn" class="secondary">Recalibrate from Live Site</button>
+        </div>
+        <div id="designOptions" class="options"></div>
+      </section>
+
+      <section class="card simulation-card">
+        <h2>Predictive Simulation</h2>
+        <p>Monte Carlo simulation projects schedule and cost risks.</p>
+        <div class="kpi-grid" id="simulationKpis"></div>
+      </section>
+
+      <section class="card sensor-card">
+        <div class="section-head">
+          <h2>Real-Time Site Sensor Feed</h2>
+          <button id="toggleSensors" class="secondary">Pause Feed</button>
+        </div>
+        <div class="sensor-grid" id="sensorGrid"></div>
+      </section>
+
+      <section class="card integration-card">
+        <h2>Data Integration Hub</h2>
+        <p>Connected toolchain and synchronization health.</p>
+        <ul id="integrationList" class="integration-list"></ul>
+      </section>
+
+      <section class="card actions-card">
+        <h2>Adaptive Site Actions</h2>
+        <p>System-generated interventions to reduce delays and rework.</p>
+        <ul id="actionLog" class="action-log"></ul>
+      </section>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>
