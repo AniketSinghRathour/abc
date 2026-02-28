@@ -1,28 +1,20 @@
-# CreaTech Command Center
+# CreaTech Dynamic Engineering System
 
-Production-grade frontend prototype for **AI-driven generative design and autonomous construction site execution**.
+A professional, modern, fully functional prototype for **AI-driven generative design and autonomous construction site execution**.
 
-## What this software delivers
+## Features
 
-- Generative construction strategy engine with weighted multi-objective scoring.
-- Predictive simulation with Monte Carlo risk modeling (delay, cost overrun, rework).
-- Real-time sensor matrix driving continuous model recalibration.
-- Adaptive action feed for mitigation decisions.
-- Integration health table for common project systems (BIM/P6/ERP/IoT).
-- Scenario lifecycle support: create, save, load, export, and import.
-- Professional responsive dashboard UI suitable for live demos and pilot workflows.
+- **Generative Design Engine** with ranked construction strategy options.
+- **Predictive Simulation** (Monte Carlo) for schedule delay, cost overrun, and rework risk.
+- **Adaptive Recalibration** based on live site signals.
+- **Real-Time Sensor Feed** simulation for labor, equipment, weather, quality, and safety.
+- **Data Integration Hub** with connected enterprise tools and synchronization health.
+- **Adaptive Site Actions** generated from sensor and simulation state.
 
 ## Run locally
 
 ```bash
-python3 -m http.server 4173 --bind 0.0.0.0
+python3 -m http.server 4173
 ```
 
-Open:
-
-- `http://127.0.0.1:4173`
-
-## Notes
-
-- Scenario storage uses browser `localStorage`.
-- JSON export/import can be used for handoff between teams or environments.
+Open `http://localhost:4173`.
