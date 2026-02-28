@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>CreaTech | Dynamic Engineering System</title>
+    <title>CreaTech Command Center | Dynamic Engineering System</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -13,87 +13,149 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <header class="topbar">
-      <div class="brand">
-        <div class="brand-mark">CT</div>
-        <div>
-          <h1>Dynamic Engineering System</h1>
-          <p>AI-Driven Generative Design & Autonomous Construction</p>
+    <div class="app-shell">
+      <aside class="sidebar card">
+        <div class="brand">
+          <div class="brand-mark">CT</div>
+          <div>
+            <h1>CreaTech</h1>
+            <p>Dynamic Engineering System</p>
+          </div>
         </div>
-      </div>
-      <div class="status-pill" id="systemStatus">System Live</div>
-    </header>
 
-    <main class="layout">
-      <section class="card control-card">
-        <h2>Project Inputs</h2>
-        <p>Configure design and site constraints to generate optimized methods.</p>
-        <form id="designForm">
-          <label>
-            Project Type
-            <select id="projectType">
-              <option value="highrise">High-Rise Tower</option>
-              <option value="bridge">Urban Bridge</option>
-              <option value="industrial">Industrial Facility</option>
-            </select>
-          </label>
-          <label>
-            Budget (M USD)
-            <input id="budget" type="number" min="30" max="500" value="120" />
-          </label>
-          <label>
-            Deadline (months)
-            <input id="deadline" type="number" min="6" max="72" value="24" />
-          </label>
-          <label>
-            Sustainability Priority
-            <input id="sustainability" type="range" min="0" max="100" value="70" />
-            <span class="range-value" id="sustainabilityValue">70%</span>
-          </label>
-          <label>
-            Safety Priority
-            <input id="safety" type="range" min="0" max="100" value="85" />
-            <span class="range-value" id="safetyValue">85%</span>
-          </label>
-          <button type="submit" class="primary">Generate Design Options</button>
-        </form>
-      </section>
+        <section class="sidebar-section">
+          <h2>Scenario Management</h2>
+          <label class="field-label" for="scenarioName">Scenario Name</label>
+          <input id="scenarioName" type="text" value="Downtown Highrise Phase 2" />
+          <div class="button-row">
+            <button id="saveScenarioBtn" class="btn btn-primary" type="button">Save</button>
+            <button id="newScenarioBtn" class="btn btn-secondary" type="button">New</button>
+          </div>
+          <label class="field-label" for="scenarioList">Saved Scenarios</label>
+          <select id="scenarioList"></select>
+        </section>
 
-      <section class="card results-card">
-        <div class="section-head">
-          <h2>Generative Design Options</h2>
-          <button id="recalibrateBtn" class="secondary">Recalibrate from Live Site</button>
-        </div>
-        <div id="designOptions" class="options"></div>
-      </section>
+        <section class="sidebar-section">
+          <h2>Data Exchange</h2>
+          <div class="button-row">
+            <button id="exportBtn" class="btn btn-secondary" type="button">Export JSON</button>
+            <label class="btn btn-secondary file-btn" for="importFile">Import</label>
+            <input id="importFile" type="file" accept="application/json" />
+          </div>
+          <p class="hint">Import/export enables handoff across design, planning, and site teams.</p>
+        </section>
 
-      <section class="card simulation-card">
-        <h2>Predictive Simulation</h2>
-        <p>Monte Carlo simulation projects schedule and cost risks.</p>
-        <div class="kpi-grid" id="simulationKpis"></div>
-      </section>
+        <section class="sidebar-section compact">
+          <h2>Live Engine</h2>
+          <div class="status-grid">
+            <div><span>State</span><strong id="engineState">Online</strong></div>
+            <div><span>Sync</span><strong id="syncStamp">--:--:--</strong></div>
+            <div><span>Loop</span><strong>2.5s</strong></div>
+          </div>
+          <button id="toggleSensors" class="btn btn-secondary" type="button">Pause Sensor Stream</button>
+        </section>
+      </aside>
 
-      <section class="card sensor-card">
-        <div class="section-head">
-          <h2>Real-Time Site Sensor Feed</h2>
-          <button id="toggleSensors" class="secondary">Pause Feed</button>
-        </div>
-        <div class="sensor-grid" id="sensorGrid"></div>
-      </section>
+      <main class="main-content">
+        <header class="topbar card">
+          <div>
+            <h2>Autonomous Site Execution Command Center</h2>
+            <p>
+              Real-time design recalibration, predictive simulations, and sensor-driven adaptive construction actions.
+            </p>
+          </div>
+          <div class="health-pill" id="systemHealth">System Healthy</div>
+        </header>
 
-      <section class="card integration-card">
-        <h2>Data Integration Hub</h2>
-        <p>Connected toolchain and synchronization health.</p>
-        <ul id="integrationList" class="integration-list"></ul>
-      </section>
+        <section class="card">
+          <div class="section-title-row">
+            <h3>Engineering Inputs</h3>
+            <button id="generateBtn" class="btn btn-primary" type="button">Generate & Optimize</button>
+          </div>
+          <form id="designForm" class="form-grid" novalidate>
+            <label>Project Type
+              <select id="projectType">
+                <option value="highrise">High-Rise Tower</option>
+                <option value="bridge">Urban Bridge</option>
+                <option value="hospital">Healthcare Campus</option>
+                <option value="industrial">Industrial Facility</option>
+              </select>
+            </label>
+            <label>Budget (M USD)
+              <input id="budget" type="number" min="40" max="900" value="180" required />
+            </label>
+            <label>Target Duration (months)
+              <input id="deadline" type="number" min="8" max="84" value="30" required />
+            </label>
+            <label>Floor Area (k m²)
+              <input id="area" type="number" min="8" max="600" value="78" required />
+            </label>
+            <label>Sustainability Priority <span id="sustainabilityLabel">72%</span>
+              <input id="sustainability" type="range" min="0" max="100" value="72" />
+            </label>
+            <label>Safety Priority <span id="safetyLabel">88%</span>
+              <input id="safety" type="range" min="0" max="100" value="88" />
+            </label>
+          </form>
+          <p id="formError" class="form-error" role="alert"></p>
+        </section>
 
-      <section class="card actions-card">
-        <h2>Adaptive Site Actions</h2>
-        <p>System-generated interventions to reduce delays and rework.</p>
-        <ul id="actionLog" class="action-log"></ul>
-      </section>
-    </main>
+        <section class="grid-two">
+          <article class="card">
+            <div class="section-title-row">
+              <h3>Generative Construction Strategies</h3>
+              <button id="recalibrateBtn" class="btn btn-secondary" type="button">Recalibrate with Live Sensors</button>
+            </div>
+            <div id="strategyCards" class="strategy-cards"></div>
+          </article>
 
+          <article class="card">
+            <h3>Predictive KPI Overview</h3>
+            <div id="kpiBoard" class="kpi-board"></div>
+            <svg id="timelineChart" viewBox="0 0 800 240" aria-label="Schedule and cost trend chart"></svg>
+          </article>
+        </section>
+
+        <section class="grid-two">
+          <article class="card">
+            <h3>Real-Time Sensor Matrix</h3>
+            <div id="sensorMatrix" class="sensor-matrix"></div>
+          </article>
+
+          <article class="card">
+            <h3>Integration & Automation Health</h3>
+            <table class="integration-table">
+              <thead>
+                <tr>
+                  <th>System</th>
+                  <th>Status</th>
+                  <th>Latency</th>
+                  <th>Last Sync</th>
+                </tr>
+              </thead>
+              <tbody id="integrationTableBody"></tbody>
+            </table>
+          </article>
+        </section>
+
+        <section class="card">
+          <h3>Adaptive Execution Actions</h3>
+          <ul id="actionFeed" class="action-feed"></ul>
+        </section>
+      </main>
+    </div>
+
+    <template id="strategyTemplate">
+      <article class="strategy-card">
+        <header>
+          <h4 class="strategy-name"></h4>
+          <span class="strategy-score"></span>
+        </header>
+        <ul class="strategy-metrics"></ul>
+      </article>
+    </template>
+
+    <script src="engine.js"></script>
     <script src="app.js"></script>
   </body>
 </html>

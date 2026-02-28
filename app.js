@@ -1,335 +1,461 @@
-const state = {
-  options: [],
-  activeOption: null,
-  sensorsPaused: false,
-  sensors: {
-    weatherRisk: 0.18,
-    concreteCureVariance: 0.07,
-    laborAvailability: 0.9,
-    equipmentHealth: 0.93,
-    productivityIndex: 1.0,
-    safetyIncidents: 0.01,
-  },
-};
+const STORAGE_KEY = "createch.dynamic.scenarios.v2";
+const Engine = window.CreaTechEngine;
 
-const optionProfiles = {
-  highrise: ["Core-First Slipform", "Hybrid Modular Floors", "Twin-Crane Fast Track"],
-  bridge: ["Segmental Launching", "Balanced Cantilever", "Accelerated Prefab Deck"],
-  industrial: ["Phased Steel Mega-Blocks", "MEP-First Rack Strategy", "Parallel Civil + Process"],
-};
-
-const integrations = [
-  { tool: "BIM 360", status: "Synchronized", latency: "1.3s" },
-  { tool: "Primavera P6", status: "Synchronized", latency: "2.1s" },
-  { tool: "SAP Procurement", status: "Synchronized", latency: "1.7s" },
-  { tool: "IoT Edge Gateway", status: "Live Streaming", latency: "0.8s" },
-  { tool: "Drone Mapping Pipeline", status: "Live Streaming", latency: "4.4s" },
+const integrationSystems = [
+  { name: "BIM 360", status: "ok", latency: 1.2 },
+  { name: "Primavera P6", status: "ok", latency: 2.1 },
+  { name: "Procore", status: "live", latency: 1.7 },
+  { name: "IoT Edge Gateway", status: "live", latency: 0.9 },
+  { name: "Drone Mapping", status: "warn", latency: 4.2 },
+  { name: "SAP Procurement", status: "ok", latency: 1.8 },
 ];
 
-const el = {
-  form: document.getElementById("designForm"),
-  options: document.getElementById("designOptions"),
-  simulationKpis: document.getElementById("simulationKpis"),
-  sensorGrid: document.getElementById("sensorGrid"),
-  actionLog: document.getElementById("actionLog"),
-  integrationList: document.getElementById("integrationList"),
-  recalibrateBtn: document.getElementById("recalibrateBtn"),
-  toggleSensors: document.getElementById("toggleSensors"),
-  status: document.getElementById("systemStatus"),
-  sustainability: document.getElementById("sustainability"),
-  sustainabilityValue: document.getElementById("sustainabilityValue"),
-  safety: document.getElementById("safety"),
-  safetyValue: document.getElementById("safetyValue"),
+const state = {
+  scenarios: [],
+  currentScenarioId: null,
+  options: [],
+  activeOption: null,
+  sensorPaused: false,
+  sensors: {
+    weatherRisk: 0.17,
+    laborAvailability: 0.9,
+    equipmentHealth: 0.94,
+    concreteVariance: 0.06,
+    logisticsDelay: 0.09,
+    safetyIncidents: 0.008,
+    productivityIndex: 1.05,
+  },
+  simulation: null,
 };
 
-function clamp(v, min, max) {
-  return Math.max(min, Math.min(v, max));
+const defaults = {
+  projectType: "highrise",
+  budget: 180,
+  deadline: 30,
+  area: 78,
+  sustainability: 72,
+  safety: 88,
+};
+
+const dom = {
+  formError: document.getElementById("formError"),
+  projectType: document.getElementById("projectType"),
+  budget: document.getElementById("budget"),
+  deadline: document.getElementById("deadline"),
+  area: document.getElementById("area"),
+  sustainability: document.getElementById("sustainability"),
+  safety: document.getElementById("safety"),
+  sustainabilityLabel: document.getElementById("sustainabilityLabel"),
+  safetyLabel: document.getElementById("safetyLabel"),
+  generateBtn: document.getElementById("generateBtn"),
+  recalibrateBtn: document.getElementById("recalibrateBtn"),
+  toggleSensors: document.getElementById("toggleSensors"),
+  strategyCards: document.getElementById("strategyCards"),
+  strategyTemplate: document.getElementById("strategyTemplate"),
+  kpiBoard: document.getElementById("kpiBoard"),
+  timelineChart: document.getElementById("timelineChart"),
+  sensorMatrix: document.getElementById("sensorMatrix"),
+  integrationTableBody: document.getElementById("integrationTableBody"),
+  actionFeed: document.getElementById("actionFeed"),
+  systemHealth: document.getElementById("systemHealth"),
+  scenarioName: document.getElementById("scenarioName"),
+  scenarioList: document.getElementById("scenarioList"),
+  saveScenarioBtn: document.getElementById("saveScenarioBtn"),
+  newScenarioBtn: document.getElementById("newScenarioBtn"),
+  exportBtn: document.getElementById("exportBtn"),
+  importFile: document.getElementById("importFile"),
+  engineState: document.getElementById("engineState"),
+  syncStamp: document.getElementById("syncStamp"),
+};
+
+function nowTime() {
+  return new Date().toLocaleTimeString([], { hour12: false });
 }
 
-function renderIntegrations() {
-  el.integrationList.innerHTML = integrations
-    .map(
-      (item) =>
-        `<li><strong>${item.tool}:</strong> ${item.status} <span style="color:#9fb0d0">(Latency ${item.latency})</span></li>`
-    )
-    .join("");
+function uid() {
+  return `scn-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
 }
 
-function generateDesignOptions(inputs) {
-  const names = optionProfiles[inputs.projectType];
-  const pressure = clamp((36 - inputs.deadline) / 30, 0.05, 1.1);
-  const budgetFactor = clamp(inputs.budget / 140, 0.6, 1.4);
-
-  return names.map((name, index) => {
-    const innovation = 68 + Math.random() * 27;
-    const scheduleScore = clamp(72 + pressure * 20 - index * 6 + Math.random() * 6, 45, 99);
-    const costConfidence = clamp(70 + budgetFactor * 13 - index * 4 + Math.random() * 5, 46, 98);
-    const safetyResilience = clamp(inputs.safety * 0.75 + Math.random() * 18 - index * 2, 40, 99);
-    const sustainabilityFit = clamp(inputs.sustainability * 0.8 + (2 - index) * 4 + Math.random() * 10, 40, 99);
-
-    const totalScore =
-      scheduleScore * 0.31 +
-      costConfidence * 0.23 +
-      safetyResilience * 0.22 +
-      sustainabilityFit * 0.16 +
-      innovation * 0.08;
-
-    return {
-      id: `${name}-${Date.now()}-${index}`,
-      name,
-      scheduleScore,
-      costConfidence,
-      safetyResilience,
-      sustainabilityFit,
-      innovation,
-      totalScore,
-      crewPlan: Math.round(90 + index * 18 - pressure * 12 + Math.random() * 16),
-      prefabRatio: Math.round(22 + index * 16 + Math.random() * 22),
-    };
-  });
-}
-
-function runMonteCarlo(option, sensors, iterations = 300) {
-  let delaySum = 0;
-  let costOverrunSum = 0;
-  let reworkRiskSum = 0;
-
-  for (let i = 0; i < iterations; i++) {
-    const weatherImpact = sensors.weatherRisk * (0.5 + Math.random());
-    const laborImpact = (1 - sensors.laborAvailability) * (0.4 + Math.random());
-    const equipmentImpact = (1 - sensors.equipmentHealth) * (0.2 + Math.random());
-    const qualityImpact = sensors.concreteCureVariance * (0.7 + Math.random());
-
-    const delayMonths = clamp(
-      1 + weatherImpact * 5 + laborImpact * 6 + equipmentImpact * 4 - option.scheduleScore / 40,
-      0,
-      9
-    );
-    const costOverrun = clamp(
-      weatherImpact * 5 + laborImpact * 7 + qualityImpact * 6 - option.costConfidence / 27,
-      -2,
-      20
-    );
-    const reworkRisk = clamp(
-      qualityImpact * 0.34 + (1 - option.safetyResilience / 100) * 0.16 + sensors.safetyIncidents * 2,
-      0.01,
-      0.55
-    );
-
-    delaySum += delayMonths;
-    costOverrunSum += costOverrun;
-    reworkRiskSum += reworkRisk;
-  }
-
+function getInputs() {
   return {
-    expectedDelay: delaySum / iterations,
-    expectedCostOverrun: costOverrunSum / iterations,
-    reworkProbability: reworkRiskSum / iterations,
+    projectType: dom.projectType.value,
+    budget: Number(dom.budget.value),
+    deadline: Number(dom.deadline.value),
+    area: Number(dom.area.value),
+    sustainability: Number(dom.sustainability.value),
+    safety: Number(dom.safety.value),
   };
 }
 
-function renderOptions() {
-  state.options.sort((a, b) => b.totalScore - a.totalScore);
-  state.activeOption = state.options[0];
-
-  el.options.innerHTML = state.options
-    .map(
-      (option, idx) => `
-      <article class="option" data-id="${option.id}" style="outline:${idx === 0 ? "2px solid #53d1ff" : "none"}">
-        <h3>${option.name}</h3>
-        <div class="score">${option.totalScore.toFixed(1)}</div>
-        <ul class="metrics">
-          <li>Schedule Confidence: ${option.scheduleScore.toFixed(1)}%</li>
-          <li>Cost Confidence: ${option.costConfidence.toFixed(1)}%</li>
-          <li>Safety Resilience: ${option.safetyResilience.toFixed(1)}%</li>
-          <li>Sustainability Fit: ${option.sustainabilityFit.toFixed(1)}%</li>
-          <li>Prefabrication Ratio: ${option.prefabRatio}%</li>
-        </ul>
-      </article>`
-    )
-    .join("");
-
-  renderSimulation();
+function setInputs(inputs) {
+  dom.projectType.value = inputs.projectType;
+  dom.budget.value = inputs.budget;
+  dom.deadline.value = inputs.deadline;
+  dom.area.value = inputs.area;
+  dom.sustainability.value = inputs.sustainability;
+  dom.safety.value = inputs.safety;
 }
 
-function renderSimulation() {
-  if (!state.activeOption) return;
-  const sim = runMonteCarlo(state.activeOption, state.sensors);
+function validateInputs(inputs) {
+  if (!Number.isFinite(inputs.budget) || inputs.budget < 40 || inputs.budget > 900) {
+    return "Budget must be between 40 and 900 million USD.";
+  }
+  if (!Number.isFinite(inputs.deadline) || inputs.deadline < 8 || inputs.deadline > 84) {
+    return "Target duration must be between 8 and 84 months.";
+  }
+  if (!Number.isFinite(inputs.area) || inputs.area < 8 || inputs.area > 600) {
+    return "Floor area must be between 8 and 600 thousand square meters.";
+  }
+  return "";
+}
 
-  const productivityLift = clamp(
-    state.activeOption.totalScore / 70 + state.sensors.productivityIndex * 14 - sim.expectedDelay * 2.1,
-    3,
-    38
-  );
-  const scheduleRecovery = clamp(100 - sim.expectedDelay * 4.5, 65, 99);
+function renderOptions() {
+  dom.strategyCards.innerHTML = "";
+  state.options.sort((a, b) => b.totalScore - a.totalScore);
+  state.activeOption = state.options[0] || null;
 
+  state.options.forEach((option, idx) => {
+    const node = dom.strategyTemplate.content.cloneNode(true);
+    const card = node.querySelector(".strategy-card");
+    if (idx === 0) card.classList.add("active");
+
+    node.querySelector(".strategy-name").textContent = option.name;
+    node.querySelector(".strategy-score").textContent = option.totalScore.toFixed(1);
+    const metrics = node.querySelector(".strategy-metrics");
+    metrics.innerHTML = [
+      `Schedule confidence: ${option.scheduleScore.toFixed(1)}%`,
+      `Cost confidence: ${option.costConfidence.toFixed(1)}%`,
+      `Safety resilience: ${option.safetyScore.toFixed(1)}%`,
+      `Sustainability fit: ${option.sustainabilityScore.toFixed(1)}%`,
+      `Prefabrication ratio: ${option.prefabRatio}%`,
+      `Planned crew size: ${option.crewSize} workers`,
+    ]
+      .map((line) => `<li>${line}</li>`)
+      .join("");
+
+    dom.strategyCards.appendChild(node);
+  });
+}
+
+function renderKpis() {
+  if (!state.activeOption || !state.simulation) return;
+  const sim = state.simulation;
   const kpis = [
-    { label: "Expected Delay", value: `${sim.expectedDelay.toFixed(2)} mo` },
-    { label: "Expected Cost Overrun", value: `${sim.expectedCostOverrun.toFixed(2)}%` },
-    { label: "Rework Probability", value: `${(sim.reworkProbability * 100).toFixed(1)}%` },
-    { label: "Predicted Productivity Lift", value: `${productivityLift.toFixed(1)}%` },
-    { label: "Schedule Reliability", value: `${scheduleRecovery.toFixed(1)}%` },
-    { label: "Optimal Crew Size", value: `${state.activeOption.crewPlan} workers` },
+    ["Expected Delay", `${sim.expectedDelay.toFixed(2)} months`],
+    ["Expected Cost Overrun", `${sim.expectedCostOverrun.toFixed(2)}%`],
+    ["Rework Probability", `${(sim.reworkProbability * 100).toFixed(1)}%`],
+    ["Productivity Improvement", `${sim.productivityLift.toFixed(1)}%`],
+    ["Schedule Reliability", `${sim.scheduleReliability.toFixed(1)}%`],
+    ["Daily Output", `${state.activeOption.dailyOutput.toLocaleString()} m²/day`],
   ];
 
-  el.simulationKpis.innerHTML = kpis
-    .map((kpi) => `<article class="kpi"><div class="kpi-label">${kpi.label}</div><div class="kpi-value">${kpi.value}</div></article>`)
+  dom.kpiBoard.innerHTML = kpis
+    .map(([label, value]) => `<article class="kpi"><span>${label}</span><strong>${value}</strong></article>`)
     .join("");
-
-  logAdaptiveActions(sim, productivityLift);
 }
 
-function sensorStatus(value, minGood, minWarn) {
-  if (value >= minGood) return "good";
-  if (value >= minWarn) return "warn";
+function renderTimelineChart() {
+  if (!state.simulation) return;
+  const svg = dom.timelineChart;
+  const { monthlySeries } = state.simulation;
+  const width = 800;
+  const height = 240;
+  const margin = { top: 18, right: 18, bottom: 28, left: 44 };
+  const chartW = width - margin.left - margin.right;
+  const chartH = height - margin.top - margin.bottom;
+
+  const maxDuration = Math.max(...monthlySeries.map((d) => d.duration), 1);
+  const maxCost = Math.max(...monthlySeries.map((d) => d.cost), 1);
+
+  const pointsDuration = monthlySeries
+    .map((d, i) => `${margin.left + (i / (monthlySeries.length - 1)) * chartW},${margin.top + chartH - (d.duration / maxDuration) * chartH}`)
+    .join(" ");
+
+  const pointsCost = monthlySeries
+    .map((d, i) => `${margin.left + (i / (monthlySeries.length - 1)) * chartW},${margin.top + chartH - (d.cost / maxCost) * chartH}`)
+    .join(" ");
+
+  const xLabels = monthlySeries
+    .filter((d) => d.month % 3 === 0)
+    .map((d) => {
+      const x = margin.left + ((d.month - 1) / (monthlySeries.length - 1)) * chartW;
+      return `<text x="${x}" y="${height - 8}" font-size="11" fill="#9fb3d9">M${d.month}</text>`;
+    })
+    .join("");
+
+  svg.innerHTML = `
+    <rect x="0" y="0" width="${width}" height="${height}" fill="#0a1324" rx="12" />
+    <line x1="${margin.left}" y1="${height - margin.bottom}" x2="${width - margin.right}" y2="${height - margin.bottom}" stroke="#2a3d63" />
+    <line x1="${margin.left}" y1="${margin.top}" x2="${margin.left}" y2="${height - margin.bottom}" stroke="#2a3d63" />
+    <polyline fill="none" stroke="#38c9ff" stroke-width="3" points="${pointsDuration}" />
+    <polyline fill="none" stroke="#ffc971" stroke-width="3" points="${pointsCost}" />
+    <text x="${margin.left}" y="14" font-size="11" fill="#38c9ff">Duration trend</text>
+    <text x="${margin.left + 125}" y="14" font-size="11" fill="#ffc971">Cost trend</text>
+    ${xLabels}
+  `;
+}
+
+function statusClass(value, goodThreshold, warnThreshold) {
+  if (value >= goodThreshold) return "good";
+  if (value >= warnThreshold) return "warn";
   return "bad";
 }
 
 function renderSensors() {
   const sensors = [
-    {
-      name: "Labor Availability",
-      value: `${(state.sensors.laborAvailability * 100).toFixed(1)}%`,
-      className: sensorStatus(state.sensors.laborAvailability, 0.88, 0.74),
-    },
-    {
-      name: "Equipment Health",
-      value: `${(state.sensors.equipmentHealth * 100).toFixed(1)}%`,
-      className: sensorStatus(state.sensors.equipmentHealth, 0.9, 0.8),
-    },
-    {
-      name: "Productivity Index",
-      value: `${state.sensors.productivityIndex.toFixed(2)}`,
-      className: sensorStatus(state.sensors.productivityIndex, 1.0, 0.88),
-    },
-    {
-      name: "Weather Risk",
-      value: `${(state.sensors.weatherRisk * 100).toFixed(1)}%`,
-      className: sensorStatus(1 - state.sensors.weatherRisk, 0.84, 0.65),
-    },
-    {
-      name: "Concrete Cure Variance",
-      value: `${(state.sensors.concreteCureVariance * 100).toFixed(2)}%`,
-      className: sensorStatus(1 - state.sensors.concreteCureVariance, 0.9, 0.8),
-    },
-    {
-      name: "Safety Incidents (rolling)",
-      value: `${(state.sensors.safetyIncidents * 100).toFixed(2)}%`,
-      className: sensorStatus(1 - state.sensors.safetyIncidents * 5, 0.88, 0.75),
-    },
+    ["Labor Availability", `${(state.sensors.laborAvailability * 100).toFixed(1)}%`, statusClass(state.sensors.laborAvailability, 0.88, 0.78)],
+    ["Equipment Health", `${(state.sensors.equipmentHealth * 100).toFixed(1)}%`, statusClass(state.sensors.equipmentHealth, 0.9, 0.8)],
+    ["Weather Risk", `${(state.sensors.weatherRisk * 100).toFixed(1)}%`, statusClass(1 - state.sensors.weatherRisk, 0.83, 0.7)],
+    ["Concrete Variance", `${(state.sensors.concreteVariance * 100).toFixed(2)}%`, statusClass(1 - state.sensors.concreteVariance, 0.9, 0.8)],
+    ["Logistics Delay", `${(state.sensors.logisticsDelay * 100).toFixed(1)}%`, statusClass(1 - state.sensors.logisticsDelay, 0.85, 0.72)],
+    ["Safety Incidents", `${(state.sensors.safetyIncidents * 100).toFixed(2)}%`, statusClass(1 - state.sensors.safetyIncidents * 5, 0.9, 0.75)],
   ];
 
-  el.sensorGrid.innerHTML = sensors
-    .map(
-      (sensor) => `<article class="sensor"><div class="sensor-head"><strong>${sensor.name}</strong><span class="${sensor.className}">${sensor.className.toUpperCase()}</span></div><div class="sensor-value">${sensor.value}</div></article>`
-    )
+  dom.sensorMatrix.innerHTML = sensors
+    .map(([label, value, status]) => `<article class="sensor-tile"><header><span>${label}</span><span class="sensor-status ${status}">${status.toUpperCase()}</span></header><strong>${value}</strong></article>`)
     .join("");
 }
 
-function logAdaptiveActions(sim, productivityLift) {
-  const recommendations = [];
-
-  if (state.sensors.weatherRisk > 0.24) {
-    recommendations.push("Weather risk increased: shift 18% of exterior tasks to prefabrication and enclosed work zones.");
-  }
-  if (state.sensors.laborAvailability < 0.8) {
-    recommendations.push("Labor shortage detected: activate modular workflow and autonomous layout robots for night shift.");
-  }
-  if (state.sensors.concreteCureVariance > 0.09) {
-    recommendations.push("Concrete variance high: modify curing schedule and enable thermal blanket protocol.");
-  }
-  if (sim.reworkProbability > 0.18) {
-    recommendations.push("Rework probability elevated: increase digital QA checkpoints from every 2 days to daily.");
-  }
-
-  recommendations.push(
-    `Current selected method is projected to deliver ${productivityLift.toFixed(
-      1
-    )}% productivity lift with ${sim.expectedDelay.toFixed(2)} month potential delay.`
-  );
-
-  el.actionLog.innerHTML = recommendations
-    .slice(0, 5)
-    .map((item) => `<li>${item}</li>`)
+function renderIntegrations() {
+  dom.integrationTableBody.innerHTML = integrationSystems
+    .map((system) => {
+      const pill = system.status === "ok" ? "ok" : system.status === "live" ? "live" : "warn";
+      const statusText = system.status === "ok" ? "Synchronized" : system.status === "live" ? "Streaming" : "Degraded";
+      return `<tr><td>${system.name}</td><td><span class="pill ${pill}">${statusText}</span></td><td>${system.latency.toFixed(1)}s</td><td>${nowTime()}</td></tr>`;
+    })
     .join("");
 }
 
-function updateSensorFeed() {
-  if (state.sensorsPaused) return;
-  state.sensors.weatherRisk = clamp(state.sensors.weatherRisk + (Math.random() - 0.52) * 0.018, 0.06, 0.34);
-  state.sensors.concreteCureVariance = clamp(
-    state.sensors.concreteCureVariance + (Math.random() - 0.49) * 0.012,
-    0.03,
-    0.16
-  );
-  state.sensors.laborAvailability = clamp(state.sensors.laborAvailability + (Math.random() - 0.49) * 0.035, 0.62, 0.98);
-  state.sensors.equipmentHealth = clamp(state.sensors.equipmentHealth + (Math.random() - 0.52) * 0.026, 0.72, 0.99);
-  state.sensors.productivityIndex = clamp(
-    state.sensors.productivityIndex + (Math.random() - 0.5) * 0.05,
-    0.76,
-    1.24
-  );
-  state.sensors.safetyIncidents = clamp(state.sensors.safetyIncidents + (Math.random() - 0.51) * 0.004, 0, 0.04);
+function renderActions() {
+  if (!state.simulation || !state.activeOption) return;
+  const sim = state.simulation;
+  const actions = [];
 
-  renderSensors();
-  renderSimulation();
+  if (state.sensors.weatherRisk > 0.23) actions.push("Shift 22% of weather-sensitive exterior scope to prefab zones and enclosed assembly windows.");
+  if (state.sensors.laborAvailability < 0.82) actions.push("Labor dip detected: trigger autonomous layout robotics and issue targeted subcontractor call-off.");
+  if (state.sensors.logisticsDelay > 0.12) actions.push("Supply-chain disruption forecasted: re-sequence steel and MEP package arrivals with buffer stock protocol.");
+  if (sim.reworkProbability > 0.17) actions.push("Increase QA frequency to daily digital inspections and deploy drone reality capture for clash verification.");
+  if (sim.expectedCostOverrun > 7) actions.push("Activate cost guardrail mode: switch to value-engineered details on non-critical architectural packages.");
+
+  actions.push(`${state.activeOption.name} remains the lead method with ${sim.productivityLift.toFixed(1)}% forecast productivity gain and ${sim.scheduleReliability.toFixed(1)}% schedule reliability.`);
+  dom.actionFeed.innerHTML = actions.slice(0, 6).map((item) => `<li><time>${nowTime()}</time>${item}</li>`).join("");
 }
 
-function runGenerationFromForm() {
-  const projectType = document.getElementById("projectType").value;
-  const budget = Number(document.getElementById("budget").value);
-  const deadline = Number(document.getElementById("deadline").value);
-  const sustainability = Number(el.sustainability.value);
-  const safety = Number(el.safety.value);
+function updateHealthPill() {
+  const risk =
+    state.sensors.weatherRisk * 0.22 +
+    (1 - state.sensors.laborAvailability) * 0.22 +
+    (1 - state.sensors.equipmentHealth) * 0.2 +
+    state.sensors.logisticsDelay * 0.2 +
+    state.sensors.safetyIncidents * 6;
 
-  state.options = generateDesignOptions({ projectType, budget, deadline, sustainability, safety });
-  renderOptions();
+  let text = "System Healthy";
+  let className = "health-pill";
+  if (risk > 0.38) {
+    text = "System Alert";
+    className += " alert";
+  } else if (risk > 0.24) {
+    text = "System Watch";
+    className += " watch";
+  }
+  dom.systemHealth.className = className;
+  dom.systemHealth.textContent = text;
 }
 
-el.form.addEventListener("submit", (e) => {
-  e.preventDefault();
-  runGenerationFromForm();
-});
+function runEngine() {
+  const inputs = getInputs();
+  const validationError = validateInputs(inputs);
+  dom.formError.textContent = validationError;
+  if (validationError) return;
 
-el.recalibrateBtn.addEventListener("click", () => {
-  if (!state.activeOption) return;
-  state.options = state.options.map((option) => ({
-    ...option,
-    scheduleScore: clamp(option.scheduleScore + (state.sensors.productivityIndex - 1) * 10 - state.sensors.weatherRisk * 8, 40, 99),
-    costConfidence: clamp(option.costConfidence + state.sensors.equipmentHealth * 3 - state.sensors.concreteCureVariance * 17, 38, 99),
-    safetyResilience: clamp(option.safetyResilience + (1 - state.sensors.safetyIncidents * 5) * 4, 36, 99),
-  }));
+  state.options = Engine.generateOptions(inputs);
+  renderOptions();
+  state.simulation = Engine.runSimulation(state.activeOption, inputs, state.sensors);
+  renderKpis();
+  renderTimelineChart();
+  renderActions();
+  updateHealthPill();
+  dom.syncStamp.textContent = nowTime();
+}
 
-  state.options = state.options.map((option) => ({
-    ...option,
-    totalScore:
-      option.scheduleScore * 0.31 +
-      option.costConfidence * 0.23 +
-      option.safetyResilience * 0.22 +
-      option.sustainabilityFit * 0.16 +
-      option.innovation * 0.08,
-  }));
+function recalibrateWithSensors() {
+  if (!state.options.length) return;
+  const inputs = getInputs();
+  state.options = state.options.map((option) => {
+    const tuned = {
+      ...option,
+      scheduleScore: Engine.clamp(option.scheduleScore + (state.sensors.productivityIndex - 1) * 9 - state.sensors.weatherRisk * 8, 40, 99),
+      costConfidence: Engine.clamp(option.costConfidence + state.sensors.equipmentHealth * 2 - state.sensors.logisticsDelay * 10, 36, 99),
+      safetyScore: Engine.clamp(option.safetyScore + (1 - state.sensors.safetyIncidents * 7) * 2.2, 40, 99),
+    };
+    tuned.totalScore = Engine.scoreOption(tuned, inputs);
+    return tuned;
+  });
 
   renderOptions();
-  el.status.textContent = "Recalibrated from Live Site";
+  state.simulation = Engine.runSimulation(state.activeOption, inputs, state.sensors);
+  renderKpis();
+  renderTimelineChart();
+  renderActions();
+  updateHealthPill();
+  dom.engineState.textContent = "Recalibrated";
   setTimeout(() => {
-    el.status.textContent = "System Live";
-  }, 1800);
-});
+    dom.engineState.textContent = state.sensorPaused ? "Paused" : "Online";
+  }, 1400);
+}
 
-el.toggleSensors.addEventListener("click", () => {
-  state.sensorsPaused = !state.sensorsPaused;
-  el.toggleSensors.textContent = state.sensorsPaused ? "Resume Feed" : "Pause Feed";
-});
+function sensorTick() {
+  if (state.sensorPaused) return;
+  state.sensors.weatherRisk = Engine.clamp(state.sensors.weatherRisk + (Math.random() - 0.52) * 0.02, 0.05, 0.34);
+  state.sensors.laborAvailability = Engine.clamp(state.sensors.laborAvailability + (Math.random() - 0.5) * 0.032, 0.64, 0.98);
+  state.sensors.equipmentHealth = Engine.clamp(state.sensors.equipmentHealth + (Math.random() - 0.53) * 0.022, 0.72, 0.99);
+  state.sensors.concreteVariance = Engine.clamp(state.sensors.concreteVariance + (Math.random() - 0.49) * 0.012, 0.02, 0.16);
+  state.sensors.logisticsDelay = Engine.clamp(state.sensors.logisticsDelay + (Math.random() - 0.5) * 0.02, 0.03, 0.2);
+  state.sensors.safetyIncidents = Engine.clamp(state.sensors.safetyIncidents + (Math.random() - 0.52) * 0.004, 0, 0.04);
+  state.sensors.productivityIndex = Engine.clamp(state.sensors.productivityIndex + (Math.random() - 0.5) * 0.04, 0.78, 1.25);
 
-el.sustainability.addEventListener("input", () => {
-  el.sustainabilityValue.textContent = `${el.sustainability.value}%`;
-});
-el.safety.addEventListener("input", () => {
-  el.safetyValue.textContent = `${el.safety.value}%`;
-});
+  if (state.activeOption) state.simulation = Engine.runSimulation(state.activeOption, getInputs(), state.sensors);
+  renderSensors();
+  renderIntegrations();
+  renderKpis();
+  renderTimelineChart();
+  renderActions();
+  updateHealthPill();
+  dom.syncStamp.textContent = nowTime();
+}
 
-renderIntegrations();
-runGenerationFromForm();
-renderSensors();
-setInterval(updateSensorFeed, 2200);
+function persistScenarios() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state.scenarios));
+}
+
+function loadScenarios() {
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if (!raw) {
+    state.scenarios = [];
+    return;
+  }
+  try {
+    const parsed = JSON.parse(raw);
+    state.scenarios = Array.isArray(parsed) ? parsed : [];
+  } catch {
+    state.scenarios = [];
+  }
+}
+
+function refreshScenarioList() {
+  dom.scenarioList.innerHTML = state.scenarios.map((s) => `<option value="${s.id}">${s.name}</option>`).join("");
+  if (state.currentScenarioId) dom.scenarioList.value = state.currentScenarioId;
+}
+
+function saveScenario() {
+  const inputs = getInputs();
+  const err = validateInputs(inputs);
+  if (err) {
+    dom.formError.textContent = err;
+    return;
+  }
+
+  const payload = {
+    id: state.currentScenarioId || uid(),
+    name: dom.scenarioName.value.trim() || "Untitled Scenario",
+    inputs,
+    sensors: state.sensors,
+    updatedAt: new Date().toISOString(),
+  };
+  const idx = state.scenarios.findIndex((s) => s.id === payload.id);
+  if (idx >= 0) state.scenarios[idx] = payload;
+  else state.scenarios.push(payload);
+
+  state.currentScenarioId = payload.id;
+  persistScenarios();
+  refreshScenarioList();
+  dom.formError.textContent = `Scenario "${payload.name}" saved.`;
+}
+
+function loadScenarioById(id) {
+  const scenario = state.scenarios.find((s) => s.id === id);
+  if (!scenario) return;
+  state.currentScenarioId = scenario.id;
+  dom.scenarioName.value = scenario.name;
+  setInputs(scenario.inputs);
+  state.sensors = { ...state.sensors, ...scenario.sensors };
+  updateSliderLabels();
+  runEngine();
+}
+
+function createNewScenario() {
+  state.currentScenarioId = null;
+  dom.scenarioName.value = "New Scenario";
+  setInputs(defaults);
+  updateSliderLabels();
+  runEngine();
+  dom.formError.textContent = "Ready to configure a new scenario.";
+}
+
+function exportScenarios() {
+  const blob = new Blob([JSON.stringify(state.scenarios, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `createch-scenarios-${Date.now()}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importScenarios(file) {
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const parsed = JSON.parse(String(reader.result || "[]"));
+      state.scenarios = Array.isArray(parsed) ? parsed.filter((p) => p?.id && p?.inputs) : [];
+      persistScenarios();
+      refreshScenarioList();
+      if (state.scenarios[0]) loadScenarioById(state.scenarios[0].id);
+      dom.formError.textContent = `Imported ${state.scenarios.length} scenarios.`;
+    } catch {
+      dom.formError.textContent = "Unable to import file. Please provide valid CreaTech scenario JSON.";
+    }
+  };
+  reader.readAsText(file);
+}
+
+function updateSliderLabels() {
+  dom.sustainabilityLabel.textContent = `${dom.sustainability.value}%`;
+  dom.safetyLabel.textContent = `${dom.safety.value}%`;
+}
+
+function bindEvents() {
+  dom.generateBtn.addEventListener("click", runEngine);
+  dom.recalibrateBtn.addEventListener("click", recalibrateWithSensors);
+  dom.toggleSensors.addEventListener("click", () => {
+    state.sensorPaused = !state.sensorPaused;
+    dom.toggleSensors.textContent = state.sensorPaused ? "Resume Sensor Stream" : "Pause Sensor Stream";
+    dom.engineState.textContent = state.sensorPaused ? "Paused" : "Online";
+  });
+
+  dom.sustainability.addEventListener("input", updateSliderLabels);
+  dom.safety.addEventListener("input", updateSliderLabels);
+  dom.saveScenarioBtn.addEventListener("click", saveScenario);
+  dom.newScenarioBtn.addEventListener("click", createNewScenario);
+  dom.scenarioList.addEventListener("change", (e) => loadScenarioById(e.target.value));
+  dom.exportBtn.addEventListener("click", exportScenarios);
+  dom.importFile.addEventListener("change", (e) => {
+    const file = e.target.files?.[0];
+    if (file) importScenarios(file);
+    e.target.value = "";
+  });
+}
+
+function init() {
+  bindEvents();
+  loadScenarios();
+  refreshScenarioList();
+  updateSliderLabels();
+  renderSensors();
+  renderIntegrations();
+  if (state.scenarios[0]) loadScenarioById(state.scenarios[0].id);
+  else runEngine();
+  setInterval(sensorTick, 2500);
+}
+
+init();
